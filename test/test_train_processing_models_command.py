@@ -1,15 +1,16 @@
 """
 Test processing train and model selection commands.
 """
-import logging
-logging.getLogger('tensorflow').disabled = True
-logging.getLogger('matplotlib').disabled = True
+from . import initialize
+initialize()
+
 import json
 import os
 import shutil
 import tempfile
 import subprocess
 import re
+import pytest
 from copy import deepcopy
 
 from numpy.testing import assert_array_less, assert_equal
@@ -21,8 +22,13 @@ from mhcflurry.downloads import get_path
 from mhcflurry.common import random_peptides
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
+
+
+pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
@@ -104,7 +110,7 @@ def run_and_check(n_jobs=0, additional_args=[], delete=False):
 
     full_predictor = Class1ProcessingPredictor.load(models_dir)
     print("Loaded models", len(full_predictor.models))
-    assert_equal(len(full_predictor.models), 4)
+    assert len(full_predictor.models) == 4
 
     test_df["full_predictor"] = full_predictor.predict(
         test_df.peptide.values,
@@ -131,7 +137,7 @@ def run_and_check(n_jobs=0, additional_args=[], delete=False):
     subprocess.check_call(args)
 
     selected_predictor = Class1ProcessingPredictor.load(models_dir_selected)
-    assert_equal(len(selected_predictor.models), 2)
+    assert len(selected_predictor.models) == 2
 
     test_df["selected_predictor"] = selected_predictor.predict(
         test_df.peptide.values,

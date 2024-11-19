@@ -1,18 +1,27 @@
-import logging
-logging.getLogger('matplotlib').disabled = True
-logging.getLogger('tensorflow').disabled = True
+from . import initialize
+initialize()
 
 import tempfile
 import os
 
 import pandas
+import pytest
 from numpy.testing import assert_equal
+
+import tensorflow as tf
+
+tf.config.experimental.enable_op_determinism()
+tf.keras.utils.set_random_seed(1)
 
 from mhcflurry import predict_command
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
+
+pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
 
 TEST_CSV = '''
 Allele,Peptide,Experiment
@@ -41,7 +50,7 @@ def test_csv():
         for delete in deletes:
             os.unlink(delete)
 
-    assert_equal(result.shape, (3, 8))
+    assert result.shape == (3, 8)
 
 
 def test_no_csv():
@@ -66,7 +75,7 @@ def test_no_csv():
             os.unlink(delete)
 
     print(result)
-    assert_equal(len(result), 6)
+    assert len(result) == 6
     sub_result1 = result.loc[result.peptide == "SIINFEKL"].set_index("allele")
     print(sub_result1)
     assert (

@@ -1,14 +1,15 @@
 """
 Run doctests.
 """
-import logging
-logging.getLogger('matplotlib').disabled = True
-logging.getLogger('tensorflow').disabled = True
+from . import initialize
+initialize()
 
 import os
 import doctest
 
 import pandas
+import pytest
+
 
 import mhcflurry
 import mhcflurry.class1_presentation_predictor
@@ -16,8 +17,12 @@ import mhcflurry.class1_presentation_predictor
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
+
+pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
 
 
 def test_doctests():

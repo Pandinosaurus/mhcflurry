@@ -1,20 +1,14 @@
-import logging
-logging.getLogger('tensorflow').disabled = True
-logging.getLogger('matplotlib').disabled = True
+from . import initialize
+initialize()
 
 import re
 import numpy
-from numpy import testing
 numpy.random.seed(0)
-from tensorflow.random import set_seed
-set_seed(2)
 
 from sklearn.metrics import roc_auc_score
 
-from nose.tools import eq_, assert_less, assert_greater, assert_almost_equal
-
 import pandas
-import pprint
+import pytest
 
 from mhcflurry.class1_processing_neural_network import Class1ProcessingNeuralNetwork
 from mhcflurry.common import random_peptides
@@ -22,8 +16,12 @@ from mhcflurry.amino_acid import BLOSUM62_MATRIX
 from mhcflurry.flanking_encoding import FlankingEncoding
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
+
+@pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
 
 table = dict([
     (tuple(encoding), amino_acid)
@@ -233,8 +231,8 @@ def train_basic_network(num, do_assertions=True, is_hit=None, **hyperparameters)
     print("Test auc", test_auc)
 
     if do_assertions:
-        assert_greater(train_auc, 0.9)
-        assert_greater(test_auc, 0.85)
+        assert train_auc > 0.9
+        assert test_auc > 0.85
 
     return network
 

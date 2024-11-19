@@ -4,6 +4,9 @@ LABEL maintainer="Tim O'Donnell timodonnell@gmail.com"
 
 WORKDIR /root
 
+# Install system dependencies
+RUN apt-get update -y && apt-get install -y gcc
+
 # Install / upgrade packages
 RUN pip install --upgrade pip && pip install jupyter seaborn
 
@@ -20,7 +23,7 @@ RUN wget -P /tmp/mhcflurry-downloads \
     $(python -c 'import yaml ; d = yaml.safe_load(open("/tmp/mhcflurry-downloads/downloads.yml")) ; downloads = d["releases"][d["current-release"]]["downloads"] ; defaults = [item["url"] for item in downloads if item["default"]] ; print("\n".join(defaults))')
 
 # Copy example notebook to current directory so it's easily found.
-COPY notebooks/* .
+COPY notebooks/* ./
 
 # Copy over source code and install mhcflurry.
 COPY . mhcflurry

@@ -1,13 +1,12 @@
-import logging
-logging.getLogger('tensorflow').disabled = True
-logging.getLogger('matplotlib').disabled = True
+from . import initialize
+initialize()
 
 import pandas
 import tempfile
 import pickle
 
 from numpy.testing import assert_, assert_equal, assert_allclose, assert_array_equal
-from nose.tools import assert_greater, assert_less
+import pytest
 import numpy
 
 from sklearn.metrics import roc_auc_score
@@ -21,44 +20,28 @@ mhcflurry.class1_presentation_predictor.PREDICT_CHUNK_SIZE = 15
 
 from . import data_path
 
-AFFINITY_PREDICTOR = None
-CLEAVAGE_PREDICTOR = None
-CLEAVAGE_PREDICTOR_NO_FLANKING = None
-PRESENTATION_PREDICTOR = None
 
-
-def setup():
-    global AFFINITY_PREDICTOR
-    global CLEAVAGE_PREDICTOR
-    global CLEAVAGE_PREDICTOR_NO_FLANKING
-    global PRESENTATION_PREDICTOR
+@pytest.fixture(scope="module")
+def predictors():
     startup()
-    AFFINITY_PREDICTOR = Class1AffinityPredictor.load(
-        get_path("models_class1_pan", "models.combined"),
-        optimization_level=0,
-        max_models=1)
-    CLEAVAGE_PREDICTOR = Class1ProcessingPredictor.load(
-        get_path("models_class1_processing", "models.selected.with_flanks"),
-        max_models=1)
-    CLEAVAGE_PREDICTOR_NO_FLANKING = Class1ProcessingPredictor.load(
-        get_path("models_class1_processing", "models.selected.no_flank"),
-        max_models=1)
-    PRESENTATION_PREDICTOR = Class1PresentationPredictor.load()
-
-
-def teardown():
-    global AFFINITY_PREDICTOR
-    global CLEAVAGE_PREDICTOR
-    global CLEAVAGE_PREDICTOR_NO_FLANKING
-    global PRESENTATION_PREDICTOR
-    AFFINITY_PREDICTOR = None
-    CLEAVAGE_PREDICTOR = None
-    CLEAVAGE_PREDICTOR_NO_FLANKING = None
-    PRESENTATION_PREDICTOR = None
+    predictors = {
+        'affinity_predictor': Class1AffinityPredictor.load(
+            get_path("models_class1_pan", "models.combined"),
+            optimization_level=0,
+            max_models=1),
+        'cleavage_predictor': Class1ProcessingPredictor.load(
+            get_path("models_class1_processing", "models.selected.with_flanks"),
+            max_models=1),
+        'cleavage_predictor_no_flanking': Class1ProcessingPredictor.load(
+            get_path("models_class1_processing", "models.selected.no_flank"),
+            max_models=1),
+        'presentation_predictor': Class1PresentationPredictor.load()
+    }
+    yield predictors
     cleanup()
 
 
-def test_basic():
+def test_basic(predictors):
     df = pandas.read_csv(data_path("multiallelic.benchmark.small.csv.bz2"))
     train_df = df.loc[
         df.sample_id.isin(sorted(df.sample_id.unique())[:3])
@@ -72,9 +55,9 @@ def test_basic():
         df.drop_duplicates("sample_id").set_index("sample_id").hla.str.split().to_dict())
 
     predictor = Class1PresentationPredictor(
-        affinity_predictor=AFFINITY_PREDICTOR,
-        processing_predictor_without_flanks=CLEAVAGE_PREDICTOR_NO_FLANKING,
-        processing_predictor_with_flanks=CLEAVAGE_PREDICTOR)
+        affinity_predictor=predictors["affinity_predictor"],
+        processing_predictor_without_flanks=predictors['cleavage_predictor_no_flanking'],
+        processing_predictor_with_flanks=predictors['cleavage_predictor'])
 
     predictor.fit(
         targets=train_df.hit.values,
@@ -124,8 +107,8 @@ def test_basic():
 
     print("AUC", score1, score2)
 
-    assert_greater(score1, 0.8)
-    assert_greater(score2, 0.8)
+    assert score1 > 0.8
+    assert score2 > 0.8
 
     score1 = roc_auc_score(
         test_df.hit.values, -test_df.prediction1_percentile.values)
@@ -133,8 +116,8 @@ def test_basic():
         test_df.hit.values, -test_df.prediction2_percentile.values)
     print("AUC (using percentiles)", score1, score2)
 
-    assert_greater(score1, 0.8)
-    assert_greater(score2, 0.8)
+    assert score1 > 0.8
+    assert score2 > 0.8
 
     # Test saving, loading, pickling
     models_dir = tempfile.mkdtemp("_models")
@@ -160,11 +143,11 @@ def test_basic():
             test_df["prediction2"], other_test_df["prediction2"], decimal=6)
 
 
-def test_downloaded_predictor_small():
-    global PRESENTATION_PREDICTOR
+def test_downloaded_predictor_small(predictors):
+    presentation_predictor = predictors['presentation_predictor']
 
     # Test sequence scanning
-    scan_results = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results = presentation_predictor.predict_sequences(
         sequences=[
             "MESLVPGFN",
             "QPYVFIKRS",
@@ -177,9 +160,9 @@ def test_downloaded_predictor_small():
         peptide_lengths=[9],
         result="best")
     print(scan_results)
-    assert_equal(len(scan_results), 6)
+    assert len(scan_results) == 6
 
-    scan_results = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results = presentation_predictor.predict_sequences(
         sequences=[
             "MESLVPGFN",
             "QPYVFIKRS",
@@ -192,9 +175,9 @@ def test_downloaded_predictor_small():
         peptide_lengths=[8, 9],
         result="best")
     print(scan_results)
-    assert_equal(len(scan_results), 6)
+    assert len(scan_results) == 6
 
-    scan_results = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results = presentation_predictor.predict_sequences(
         sequences=[
             "MESLVPGFN",
             "QPYVFIKRS",
@@ -207,9 +190,9 @@ def test_downloaded_predictor_small():
         peptide_lengths=[9],
         result="all")
     print(scan_results)
-    assert_equal(len(scan_results), 6)
+    assert len(scan_results) == 6
 
-    scan_results = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results = presentation_predictor.predict_sequences(
         sequences=[
             "MESLVPGFN",
             "QPYVFIKRS",
@@ -222,9 +205,9 @@ def test_downloaded_predictor_small():
         peptide_lengths=[8, 9],
         result="all")
     print(scan_results)
-    assert_equal(len(scan_results), 18)
+    assert len(scan_results) == 18
 
-    scan_results = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results = presentation_predictor.predict_sequences(
         sequences=[
             "MESLVPGFN",
             "QPYVFIKRS",
@@ -237,14 +220,14 @@ def test_downloaded_predictor_small():
         peptide_lengths=[10],
         result="all")
     print(scan_results)
-    assert_equal(len(scan_results), 0)
+    assert len(scan_results) == 0
 
 
-def test_downloaded_predictor():
-    global PRESENTATION_PREDICTOR
+def test_downloaded_predictor(predictors):
+    presentation_predictor = predictors['presentation_predictor']
 
     # Test sequence scanning
-    scan_results1 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results1 = presentation_predictor.predict_sequences(
         sequences=[
             "MESLVPGFNEKTHVQLSLPVLQVRDVLVRGFGDSVEEVLSEARQHLKDGTCGLVEVEKGVLPQLE",
             "QPYVFIKRSDARTAPHGHVMVELVAELEGIQYGRSGETLGVLVPHVGEIPVAYRKVLLRKNGNKG",
@@ -260,11 +243,11 @@ def test_downloaded_predictor():
         ])
     print(scan_results1)
 
-    assert_equal(len(scan_results1), 3), str(scan_results1)
+    assert len(scan_results1) == 3, str(scan_results1)
     assert (scan_results1.affinity < 200).all(), str(scan_results1)
     assert (scan_results1.presentation_score > 0.7).all(), str(scan_results1)
 
-    scan_results2 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results2 = presentation_predictor.predict_sequences(
         result="filtered",
         filter_value=500,
         comparison_quantity="affinity",
@@ -286,7 +269,7 @@ def test_downloaded_predictor():
     assert len(scan_results2) > 10
     assert (scan_results2.affinity <= 500).all()
 
-    scan_results3 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results3 = presentation_predictor.predict_sequences(
         result="filtered",
         filter_value=0.9,
         comparison_quantity="presentation_score",
@@ -308,7 +291,7 @@ def test_downloaded_predictor():
     assert len(scan_results3) >= 5, len(scan_results3)
     assert (scan_results3.presentation_score >= 0.9).all()
 
-    scan_results4 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results4 = presentation_predictor.predict_sequences(
         result="all",
         comparison_quantity="affinity",
         sequences={
@@ -327,7 +310,7 @@ def test_downloaded_predictor():
     print(scan_results4)
 
     assert len(scan_results4) > 200, len(scan_results4)
-    assert_less(scan_results4.iloc[0].affinity, 100)
+    assert scan_results4.iloc[0].affinity < 100
 
     sequences = {
         "seq1":
@@ -338,7 +321,7 @@ def test_downloaded_predictor():
             "AGGHSYGADLKSFDLGDELGTDPYEDFQENWNTKHSSGVTRELMRELNGGAYTRYVDNNFCGPDG",
     }
 
-    scan_results5 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results5 = presentation_predictor.predict_sequences(
         result="all",
         comparison_quantity="affinity",
         sequences=sequences,
@@ -361,10 +344,10 @@ def test_downloaded_predictor():
             ],
         })
     print(scan_results5)
-    assert_equal(len(scan_results5), len(scan_results4) * 2)
+    assert len(scan_results5) == len(scan_results4) * 2
 
     # Test case-insensitive.
-    scan_results6 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results6 = presentation_predictor.predict_sequences(
         result="all",
         comparison_quantity="affinity",
         sequences=dict((k, v.lower()) for (k, v) in sequences.items()),
@@ -400,7 +383,7 @@ def test_downloaded_predictor():
         scan_results6.presentation_score.values,
         scan_results5.presentation_score.values)
 
-    scan_results7 = PRESENTATION_PREDICTOR.predict_sequences(
+    scan_results7 = presentation_predictor.predict_sequences(
         result="all",
         comparison_quantity="affinity",
         sequences={
@@ -423,8 +406,8 @@ def test_downloaded_predictor():
     assert "DNNFCGPdg" in scan_results7.peptide.values, scan_results7.peptide
 
 
-def test_downloaded_predictor_invalid_peptides():
-    global PRESENTATION_PREDICTOR
+def test_downloaded_predictor_invalid_peptides(predictors):
+    presentation_predictor = predictors['presentation_predictor']
 
     peptides = [
         "SIINFEKL",
@@ -442,11 +425,11 @@ def test_downloaded_predictor_invalid_peptides():
 
     numpy.testing.assert_raises(
         ValueError,
-        PRESENTATION_PREDICTOR.predict,
+        presentation_predictor.predict,
         peptides=peptides,
         alleles=alleles)
 
-    results1 = PRESENTATION_PREDICTOR.predict(
+    results1 = presentation_predictor.predict(
         peptides=peptides,
         alleles=alleles,
         throw=False).presentation_score.values

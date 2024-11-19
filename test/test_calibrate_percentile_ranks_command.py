@@ -1,14 +1,14 @@
 """
 Tests for calibrate percentile ranks command
 """
-import logging
-logging.getLogger('matplotlib').disabled = True
-logging.getLogger('tensorflow').disabled = True
+from . import initialize
+initialize()
 
 import os
 import shutil
 import tempfile
 import subprocess
+import pytest
 
 from numpy.testing import assert_equal
 
@@ -18,8 +18,12 @@ from mhcflurry.downloads import get_path
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
+
+pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
 
 
 def run_and_check(n_jobs=0, delete=True, additional_args=[]):
@@ -37,7 +41,7 @@ def run_and_check(n_jobs=0, delete=True, additional_args=[]):
     print("Saved predictor to", dest_models_dir)
 
     new_predictor = Class1AffinityPredictor.load(dest_models_dir)
-    assert_equal(len(new_predictor.allele_to_percent_rank_transform), 0)
+    assert len(new_predictor.allele_to_percent_rank_transform) == 0
 
     args = [
         "mhcflurry-calibrate-percentile-ranks",
@@ -54,7 +58,7 @@ def run_and_check(n_jobs=0, delete=True, additional_args=[]):
     subprocess.check_call(args)
 
     new_predictor = Class1AffinityPredictor.load(dest_models_dir)
-    assert_equal(len(new_predictor.allele_to_percent_rank_transform), 2)
+    assert len(new_predictor.allele_to_percent_rank_transform) == 2
 
     if delete:
         print("Deleting: %s" % dest_models_dir)

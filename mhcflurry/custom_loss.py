@@ -12,7 +12,6 @@ from numpy import isnan, array
 
 from .common import configure_tensorflow
 
-
 CUSTOM_LOSSES = {}
 
 
@@ -65,7 +64,7 @@ class Loss(object):
 
     def get_keras_loss(self, reduction="sum_over_batch_size"):
         configure_tensorflow()
-        from tensorflow.keras.losses import LossFunctionWrapper
+        from tf_keras.losses import LossFunctionWrapper
         return LossFunctionWrapper(
             self.loss, reduction=reduction, name=self.name)
 
@@ -168,34 +167,36 @@ class MSEWithInequalities(Loss):
         # We always delay import of Keras so that mhcflurry can be imported
         # initially without tensorflow debug output, etc.
         configure_tensorflow()
-        from tensorflow.keras import backend as K
-        y_true = K.flatten(y_true)
-        y_pred = K.flatten(y_pred)
+        import tensorflow as tf
+
+        # from tf_keras import backend as K
+        y_true = tf.reshape(y_true, [-1])
+        y_pred = tf.reshape(y_pred, [-1])
 
         # Handle (=) inequalities
         diff1 = y_pred - y_true
-        diff1 *= K.cast(y_true >= 0.0, "float32")
-        diff1 *= K.cast(y_true <= 1.0, "float32")
+        diff1 *= tf.cast(y_true >= 0.0, "float32")
+        diff1 *= tf.cast(y_true <= 1.0, "float32")
 
         # Handle (>) inequalities
         diff2 = y_pred - (y_true - 2.0)
-        diff2 *= K.cast(y_true >= 2.0, "float32")
-        diff2 *= K.cast(y_true <= 3.0, "float32")
-        diff2 *= K.cast(diff2 < 0.0, "float32")
+        diff2 *= tf.cast(y_true >= 2.0, "float32")
+        diff2 *= tf.cast(y_true <= 3.0, "float32")
+        diff2 *= tf.cast(diff2 < 0.0, "float32")
 
         # Handle (<) inequalities
         diff3 = y_pred - (y_true - 4.0)
-        diff3 *= K.cast(y_true >= 4.0, "float32")
-        diff3 *= K.cast(diff3 > 0.0, "float32")
+        diff3 *= tf.cast(y_true >= 4.0, "float32")
+        diff3 *= tf.cast(diff3 > 0.0, "float32")
 
-        denominator = K.maximum(
-            K.sum(K.cast(K.not_equal(y_true, 2.0), "float32"), 0),
+        denominator = tf.maximum(
+            tf.reduce_sum(tf.cast(tf.not_equal(y_true, 2.0), "float32"), 0),
             1.0)
 
         result = (
-            K.sum(K.square(diff1)) +
-            K.sum(K.square(diff2)) +
-            K.sum(K.square(diff3))) / denominator
+            tf.reduce_sum(tf.math.square(diff1)) +
+            tf.reduce_sum(tf.math.square(diff2)) +
+            tf.reduce_sum(tf.math.square(diff3))) / denominator
 
         return result
 
@@ -251,6 +252,7 @@ class MSEWithInequalitiesAndMultipleOutputs(Loss):
     def loss(self, y_true, y_pred):
         configure_tensorflow()
         import tensorflow as tf
+
         y_true = tf.reshape(y_true, [-1])
 
         output_indices = y_true // 10
@@ -299,6 +301,7 @@ class MultiallelicMassSpecLoss(Loss):
     def loss(self, y_true, y_pred):
         configure_tensorflow()
         import tensorflow as tf
+
         y_true = tf.reshape(y_true, (-1,))
         pos = tf.boolean_mask(y_pred, tf.math.equal(y_true, 1.0))
         pos_max = tf.reduce_max(pos, axis=1)

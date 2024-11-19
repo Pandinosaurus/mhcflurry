@@ -1,9 +1,7 @@
-import logging
-logging.getLogger('matplotlib').disabled = True
-logging.getLogger('tensorflow').disabled = True
+from . import initialize
+initialize()
 
 from mhcflurry import amino_acid
-from nose.tools import eq_
 from numpy.testing import assert_equal
 import numpy
 import pandas

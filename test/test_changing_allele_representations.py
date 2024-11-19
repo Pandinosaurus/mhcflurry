@@ -1,20 +1,20 @@
-import logging
-logging.getLogger('matplotlib').disabled = True
-logging.getLogger('tensorflow').disabled = True
+from . import initialize
+initialize()
 
-import time
 import pandas
+import pytest
 
-from mhcflurry.allele_encoding import AlleleEncoding
-from mhcflurry.amino_acid import BLOSUM62_MATRIX
 from mhcflurry.class1_affinity_predictor import Class1AffinityPredictor
 from mhcflurry.downloads import get_path
 
-from numpy.testing import assert_equal
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
+
+pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
 
 ALLELE_TO_SEQUENCE = pandas.read_csv(
     get_path(
@@ -62,7 +62,7 @@ HYPERPARAMETERS = {
 def test_changing_allele_representations():
     allele1 = "HLA-A*02:01"
     allele2 = "HLA-C*03:04"
-    allele3 = "HLA-B*07:01"
+    allele3 = "HLA-B*07:02"
 
     peptide = "SIINFEKL"
 

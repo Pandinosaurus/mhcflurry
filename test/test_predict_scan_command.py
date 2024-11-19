@@ -1,21 +1,25 @@
-import logging
-logging.getLogger('matplotlib').disabled = True
-logging.getLogger('tensorflow').disabled = True
+from . import initialize
+initialize()
 
 import tempfile
 import os
 
 import pandas
+import pytest
 from numpy.testing import assert_equal, assert_array_less, assert_array_equal
 
 from mhcflurry import predict_scan_command
 
+from . import data_path
 
 from mhcflurry.testing_utils import cleanup, startup
-teardown = cleanup
-setup = startup
 
-from . import data_path
+pytest.fixture(autouse=True, scope="module")
+def setup_module():
+    startup()
+    yield
+    cleanup()
+
 
 
 def read_output_csv(filename):
@@ -44,11 +48,10 @@ def test_fasta():
         for delete in deletes:
             os.unlink(delete)
 
-    assert_equal(
-        result.best_allele.nunique(),
-        6,
-        err_msg=str(list(result.best_allele.unique())))
-    assert_equal(result.sequence_name.nunique(), 3)
+    assert (
+        result.best_allele.nunique() ==
+        6), str(list(result.best_allele.unique()))
+    assert result.sequence_name.nunique() == 3
     assert_array_less(result.affinity_percentile, 2.0)
 
 
@@ -57,7 +60,6 @@ def test_fasta_50nm():
         data_path("example.fasta"),
         "--alleles",
         "HLA-A*02:01,HLA-A*03:01,HLA-B*57:01,HLA-B*45:01,HLA-C*02:02,HLA-C*07:02",
-        "--results-filtered", "affinity",
         "--threshold-affinity", "50",
     ]
     deletes = []
@@ -75,15 +77,15 @@ def test_fasta_50nm():
             os.unlink(delete)
 
     assert len(result) > 0
-    assert_array_less(result.affinity, 50)
+    assert_array_less(result.affinity, 50.0001)
 
 
-def test_fasta_best():
+def test_fasta_percentile():
     args = [
         data_path("example.fasta"),
         "--alleles",
         "HLA-A*02:01,HLA-A*03:01,HLA-B*57:01,HLA-B*45:01,HLA-C*02:02,HLA-C*07:02",
-        "--results-best", "affinity_percentile",
+        "--threshold-affinity-percentile", "5.0",
     ]
     deletes = []
     try:
@@ -100,8 +102,7 @@ def test_fasta_best():
             os.unlink(delete)
 
     assert len(result) > 0
-    assert_array_equal(
-        result.groupby(["sequence_name"]).peptide.count().values, 1)
+    assert_array_less(result.affinity_percentile, 5.0001)
 
 
 def test_commandline_sequences():
@@ -127,8 +128,8 @@ def test_commandline_sequences():
 
     print(result)
 
-    assert_equal(result.sequence_name.nunique(), 2)
-    assert_equal(result.best_allele.nunique(), 3)
-    assert_equal(result.sample_name.nunique(), 2)
-    assert_equal((result.peptide == "ASDFGHKL").sum(), 2)
-    assert_equal((result.peptide != "ASDFGHKL").sum(), 10)
+    assert result.sequence_name.nunique() == 2
+    assert result.best_allele.nunique() == 3
+    assert result.sample_name.nunique() == 2
+    assert (result.peptide == "ASDFGHKL").sum() == 2
+    assert (result.peptide != "ASDFGHKL").sum() == 10

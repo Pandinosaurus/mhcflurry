@@ -1,4 +1,5 @@
-[![Build Status](https://app.travis-ci.com/openvax/mhcflurry.svg?branch=master)](https://app.travis-ci.com/openvax/mhcflurry)
+[![Build Status](https://github.com/openvax/mhcflurry/actions/workflows/ci.yml/badge.svg)](https://github.com/openvax/mhcflurry/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/openvax/mhcflurry/badge.svg?branch=master)](https://coveralls.io/github/openvax/mhcflurry?branch=master)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/openvax/mhcflurry/blob/master/notebooks/mhcflurry-colab.ipynb)
 
 # mhcflurry
@@ -8,7 +9,7 @@ prediction package with competitive accuracy and a fast and
 
 MHCflurry implements class I peptide/MHC binding affinity prediction. 
 The current version provides pan-MHC I predictors supporting any MHC
-allele of known sequence. MHCflurry runs on Python 3.4+ using the
+allele of known sequence. MHCflurry runs on Python 3.9+ using the
 [tensorflow](https://www.tensorflow.org/) neural network library.
 It exposes [command-line](http://openvax.github.io/mhcflurry/commandline_tutorial.html)
 and [Python library](http://openvax.github.io/mhcflurry/python_tutorial.html)
@@ -43,15 +44,7 @@ Install the package:
 $ pip install mhcflurry
 ```
 
-If you don't already have it, you will also need to install tensorflow version 2.2.0 or later. On most platforms you can do this with:
-
-```
-$ pip install tensorflow
-```
-
-If you are on Apple silicon (M1 processor), then you'll need to run `pip install tensorflow-macos` instead. See these [instructions](https://caffeinedev.medium.com/how-to-install-tensorflow-on-m1-mac-8e9b91d93706) for more info.
-
-Next download our datasets and trained models:
+Download our datasets and trained models:
 
 ```
 $ mhcflurry-downloads fetch

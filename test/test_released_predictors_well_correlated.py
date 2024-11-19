@@ -6,13 +6,11 @@ import logging
 logging.getLogger('tensorflow').disabled = True
 logging.getLogger('matplotlib').disabled = True
 
-import os
+import pytest
 import sys
 import argparse
 import pandas
 import numpy
-from sklearn.metrics import roc_auc_score
-from nose.tools import eq_, assert_less, assert_greater, assert_almost_equal
 
 from mhcflurry import Class1AffinityPredictor
 from mhcflurry.encodable_sequences import EncodableSequences
@@ -21,31 +19,26 @@ from mhcflurry.common import random_peptides
 
 from mhcflurry.testing_utils import cleanup, startup
 
-PREDICTORS = None
 
-
-def setup():
-    global PREDICTORS
+# Define a fixture to initialize and clean up predictors
+@pytest.fixture(scope="module")
+def predictors():
     startup()
-    PREDICTORS = {
-        'allele-specific': Class1AffinityPredictor.load(
-            get_path("models_class1", "models")),
-        'pan-allele': Class1AffinityPredictor.load(
-            get_path("models_class1_pan", "models.combined"), max_models=2)
+    predictors_dict = {
+        'allele-specific': Class1AffinityPredictor.load(get_path("models_class1", "models")),
+        'pan-allele': Class1AffinityPredictor.load(get_path("models_class1_pan", "models.combined")),
     }
-
-
-def teardown():
-    global PREDICTORS
-    PREDICTORS = None
+    yield predictors_dict
     cleanup()
 
 
 def test_correlation(
+        predictors,
         alleles=None,
         num_peptides_per_length=1000,
         lengths=[8, 9, 10],
-        debug=False):
+        debug=False,
+        return_result=False):
     peptides = []
     for length in lengths:
         peptides.extend(random_peptides(num_peptides_per_length, length))
@@ -55,14 +48,14 @@ def test_correlation(
 
     if alleles is None:
         alleles = set.intersection(*[
-            set(predictor.supported_alleles) for predictor in PREDICTORS.values()
+            set(predictor.supported_alleles) for predictor in predictors.values()
         ])
     alleles = sorted(set(alleles))
     df = pandas.DataFrame(index=peptides.sequences)
 
     results_df = []
     for allele in alleles:
-        for (name, predictor) in PREDICTORS.items():
+        for (name, predictor) in predictors.items():
             df[name] = predictor.predict(peptides, allele=allele)
         correlation = numpy.corrcoef(
             numpy.log10(df["allele-specific"]),
@@ -82,9 +75,10 @@ def test_correlation(
     print(results_df)
 
     print("Mean correlation", results_df.correlation.mean())
-    assert_greater(results_df.correlation.mean(), 0.65)
+    assert results_df.correlation.mean() > 0.65
 
-    return results_df
+    if return_result:
+        return results_df
 
 
 parser = argparse.ArgumentParser(usage=__doc__)
@@ -96,9 +90,9 @@ parser.add_argument(
 
 if __name__ == '__main__':
     # If run directly from python, leave the user in a shell to explore results.
-    setup()
+    startup()
     args = parser.parse_args(sys.argv[1:])
-    result = test_correlation(alleles=args.alleles, debug=True)
+    result = test_correlation(alleles=args.alleles, debug=True, return_result=True)
 
     # Leave in ipython
     import ipdb  # pylint: disable=import-error
